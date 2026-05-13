@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Draft Loadable Calculator | Deploy v19</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --app-bg: #0f172a;
+      --panel: rgba(30, 41, 59, 0.72);
+      --panel-strong: rgba(15, 23, 42, 0.78);
+      --line: rgba(255,255,255,0.10);
+      --line-strong: rgba(148,163,184,0.24);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-soft: rgba(59,130,246,0.12);
+      --primary-glow: rgba(59,130,246,0.45);
+      --success: #10b981;
+      --success-soft: rgba(16,185,129,0.12);
+      --warning: #f59e0b;
+      --warning-soft: rgba(245,158,11,0.12);
+      --danger: #ef4444;
+      --danger-soft: rgba(239,68,68,0.12);
+      --radius: 22px;
+      --transition: all .22s cubic-bezier(.4,0,.2,1);
+    }
+
+    * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Inter', 'Noto Sans KR', Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 5%, rgba(59,130,246,.17) 0, transparent 34%),
+        radial-gradient(circle at 94% 90%, rgba(16,185,129,.11) 0, transparent 35%),
+        linear-gradient(135deg, #0f172a 0%, #111827 52%, #020617 100%);
+      padding: 34px 20px;
+    }
+
+    .app { max-width: 1480px; margin: 0 auto; }
+
+    .header {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:24px;
+      margin-bottom:28px;
+    }
+
+    h1 {
+      margin:0;
+      font-size:36px;
+      line-height:1.05;
+      font-weight:800;
+      letter-spacing:-1.2px;
+      background: linear-gradient(90deg, #fff, #a5b4fc 55%, #94a3b8);
+      -webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;
+    }
+
+    .subtitle { margin:10px 0 0; color:var(--muted); font-size:14px; line-height:1.55; }
+
+    .version {
+      flex:0 0 auto;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 14px;
+      border:1px solid rgba(59,130,246,.55);
+      background:rgba(59,130,246,.10);
+      color:#bfdbfe;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+    }
+
+    .main-grid {
+      display:grid;
+      grid-template-columns:minmax(680px, 1.12fr) minmax(420px, .88fr);
+      gap:22px;
+      align-items:start;
+    }
+
+    .glass-card {
+      background:var(--panel);
+      border:1px solid var(--line);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 24px 60px rgba(0,0,0,.42);
+      border-radius:var(--radius);
+      padding:26px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .glass-card::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:linear-gradient(135deg, rgba(255,255,255,.07), transparent 34%);
+    }
+
+    .glass-card > * { position:relative; }
+
+    .section-title {
+      margin:26px 0 14px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:#93c5fd;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:1.5px;
+      text-transform:uppercase;
+    }
+
+    .section-title:first-child { margin-top:0; }
+    .section-title::after {
+      content:"";
+      height:1px;
+      flex:1;
+      background:linear-gradient(90deg, rgba(59,130,246,.35), transparent);
+    }
+
+    .input-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+    .input-grid.three { grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .vessel-search-wrap { display:grid; grid-template-columns:1.05fr .95fr; gap:10px; }
+
+    .field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+    label { color:var(--muted); font-size:12px; font-weight:700; }
+
+    input, select {
+      width:100%;
+      height:44px;
+      padding:0 13px;
+      border-radius:12px;
+      border:1px solid var(--line-strong);
+      background:rgba(15,23,42,.62);
+      color:#fff;
+      font-size:14px;
+      transition:var(--transition);
+      outline:none;
+    }
+    input:focus, select:focus { border-color:var(--primary); box-shadow:0 0 0 4px var(--primary-glow); }
+    input[readonly] { background:rgba(2,6,23,.42); color:#cbd5e1; cursor:not-allowed; }
+    input::placeholder { color:#64748b; }
+
+    .meta-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; }
+    .meta-box {
+      min-height:70px;
+      padding:13px 14px;
+      background:rgba(15,23,42,.42);
+      border:1px solid var(--line);
+      border-radius:16px;
+    }
+    .meta-label { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.7px; }
+    .meta-value { margin-top:7px; font-size:17px; font-weight:800; color:#e0f2fe; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    .sister-box {
+      margin-top:12px;
+      min-height:52px;
+      padding:14px;
+      border-radius:16px;
+      border:1px dashed rgba(59,130,246,.42);
+      background:rgba(59,130,246,.07);
+      color:#bfdbfe;
+      font-size:13px;
+      line-height:1.65;
+    }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      padding:5px 9px;
+      margin:3px 4px 3px 0;
+      border-radius:999px;
+      border:1px solid rgba(147,197,253,.28);
+      background:rgba(15,23,42,.50);
+      color:#dbeafe;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .deduction-group {
+      display:grid;
+      grid-template-columns: 130px 1fr;
+      gap:16px;
+      align-items:center;
+      padding:14px;
+      margin-bottom:12px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(15,23,42,.32);
+    }
+    .group-title { color:#dbeafe; font-size:13px; font-weight:800; line-height:1.35; }
+    .group-sub { color:var(--muted); font-size:11px; margin-top:4px; }
+    .compact-fields { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+    .compact-fields .field { width:104px; flex:0 0 104px; }
+    .compact-fields input { height:40px; padding:0 10px; text-align:right; font-variant-numeric: tabular-nums; }
+
+    .btn-row { display:flex; gap:12px; margin-top:22px; }
+    button {
+      min-height:46px;
+      padding:0 16px;
+      border-radius:13px;
+      border:0;
+      cursor:pointer;
+      font-weight:800;
+      transition:var(--transition);
+    }
+    .btn-calc { flex:1.25; background:var(--primary); color:#fff; box-shadow:0 12px 24px -10px var(--primary-glow); }
+    .btn-calc:hover { transform:translateY(-1px); box-shadow:0 16px 30px -10px var(--primary-glow); }
+    .btn-sub { flex:1; background:rgba(255,255,255,.06); color:#e2e8f0; border:1px solid var(--line); }
+    .btn-sub:hover { background:rgba(255,255,255,.10); }
+
+    .result-stack { display:flex; flex-direction:column; gap:14px; }
+    .res-card {
+      padding:20px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(15,23,42,.36);
+      overflow:hidden;
+      position:relative;
+    }
+    .res-card.main { background:linear-gradient(135deg, rgba(16,185,129,.16), rgba(15,23,42,.30)); border-color:rgba(16,185,129,.38); }
+    .cargo-result-row { display:grid; grid-template-columns:1fr 170px; gap:14px; align-items:stretch; }
+    .wt14-box { padding:16px; border-radius:16px; border:1px solid rgba(16,185,129,.28); background:rgba(16,185,129,.08); display:flex; flex-direction:column; justify-content:center; }
+    .wt14-value { margin-top:6px; font-size:24px; font-weight:800; color:#a7f3d0; letter-spacing:-.4px; }
+    .res-card.dwt { background:linear-gradient(135deg, rgba(59,130,246,.13), rgba(15,23,42,.30)); border-color:rgba(59,130,246,.34); }
+    .res-card.ded { background:linear-gradient(135deg, rgba(245,158,11,.12), rgba(15,23,42,.30)); border-color:rgba(245,158,11,.34); }
+    .res-label { color:var(--muted); font-size:12px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; }
+    .res-value { margin-top:8px; display:flex; align-items:baseline; gap:7px; font-size:42px; font-weight:800; letter-spacing:-1px; }
+    .res-card.small .res-value { font-size:26px; }
+    .res-unit { color:var(--muted); font-size:14px; font-weight:600; }
+
+    .capacity-strip { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
+    .compact-capacity { margin-bottom: 4px; }
+
+    .cap-box {
+      padding:15px;
+      border-radius:16px;
+      background:rgba(255,255,255,.045);
+      border:1px solid var(--line);
+    }
+    .cap-value { margin-top:6px; font-size:22px; font-weight:800; }
+
+    .data-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+    .data-table th, .data-table td { padding:11px 8px; border-bottom:1px solid rgba(255,255,255,.07); }
+    .data-table th { color:var(--muted); text-align:left; font-size:12px; }
+    .data-table td:last-child, .data-table th:last-child { text-align:right; font-variant-numeric: tabular-nums; }
+
+    .note, .warning, .danger {
+      margin-top:14px;
+      padding:13px 14px;
+      border-radius:15px;
+      font-size:12.5px;
+      line-height:1.55;
+      color:#cbd5e1;
+      border:1px solid var(--line);
+      background:rgba(15,23,42,.40);
+    }
+    .warning { color:#fde68a; background:var(--warning-soft); border-color:rgba(245,158,11,.34); display:none; }
+    .danger { color:#fecaca; background:var(--danger-soft); border-color:rgba(239,68,68,.38); display:none; }
+
+    .footer { margin-top:18px; color:#64748b; font-size:12px; line-height:1.55; }
+
+
+
+    .clickable { cursor:pointer; transition:var(--transition); }
+    .clickable:hover {
+      transform:translateY(-1px);
+      border-color:rgba(59,130,246,.55);
+      background:rgba(59,130,246,.12);
+      box-shadow:0 0 0 4px rgba(59,130,246,.10);
+    }
+    .meta-hint { margin-top:4px; color:#60a5fa; font-size:10.5px; font-weight:700; }
+    .draft-auto-note { display:none !important; }
+
+    .modal-backdrop {
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+    }
+    .modal-backdrop.show { display:flex; }
+    .modal-card {
+      width:min(860px, 100%);
+      max-height:min(760px, 88vh);
+      overflow:auto;
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.26);
+      background:linear-gradient(135deg, rgba(30,41,59,.96), rgba(15,23,42,.96));
+      box-shadow:0 30px 90px rgba(0,0,0,.65);
+      padding:24px;
+    }
+    .modal-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:18px;
+      margin-bottom:18px;
+    }
+    .modal-title { margin:0; font-size:24px; font-weight:800; letter-spacing:-.5px; color:#f8fafc; }
+    .modal-subtitle { margin:8px 0 0; color:#94a3b8; font-size:13px; line-height:1.55; }
+    .modal-close {
+      flex:0 0 auto;
+      width:38px;
+      height:38px;
+      min-height:38px;
+      padding:0;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:#e2e8f0;
+      font-size:24px;
+      line-height:1;
+    }
+    .modal-close:hover { background:rgba(255,255,255,.12); }
+    .design-capa-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+      gap:12px;
+    }
+    .design-capa-btn {
+      min-height:88px;
+      padding:14px;
+      text-align:left;
+      border-radius:16px;
+      border:1px solid rgba(147,197,253,.20);
+      background:rgba(15,23,42,.56);
+      color:#e0f2fe;
+    }
+    .design-capa-btn:hover {
+      transform:translateY(-1px);
+      border-color:rgba(59,130,246,.62);
+      background:rgba(59,130,246,.14);
+    }
+    .design-capa-name { font-size:22px; font-weight:800; letter-spacing:-.4px; }
+    .design-capa-count { margin-top:8px; color:#94a3b8; font-size:12px; line-height:1.35; }
+
+    .series-picker-modal { width:min(1120px, 100%); }
+    .series-picker {
+      display:grid;
+      grid-template-columns: 0.75fr 1fr 1.35fr;
+      gap:14px;
+    }
+    .picker-panel {
+      min-height:360px;
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      background:rgba(15,23,42,.35);
+      padding:14px;
+      overflow:auto;
+    }
+    .picker-title {
+      margin-bottom:12px;
+      font-size:12px;
+      color:#60a5fa;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .picker-list {
+      display:flex;
+      flex-direction:column;
+      gap:9px;
+      color:#94a3b8;
+      font-size:13px;
+    }
+    .picker-btn {
+      width:100%;
+      height:auto;
+      min-height:48px;
+      justify-content:flex-start;
+      text-align:left;
+      padding:11px 12px;
+      border-radius:14px;
+      border:1px solid rgba(147,197,253,.18);
+      background:rgba(2,6,23,.22);
+      color:#e0f2fe;
+    }
+    .picker-btn:hover, .picker-btn.active {
+      background:rgba(59,130,246,.16);
+      border-color:rgba(59,130,246,.62);
+      transform:translateY(-1px);
+    }
+    .picker-main { display:block; font-weight:800; color:#f8fafc; }
+    .picker-sub { display:block; margin-top:4px; font-size:11.5px; color:#94a3b8; line-height:1.35; }
+    .vessel-picker-list .picker-btn { min-height:56px; }
+    .muted-list { color:#64748b; line-height:1.6; }
+    .result-small-note { margin-top:10px; color:#94a3b8; font-size:11.5px; line-height:1.5; }
+
+    @media (max-width: 1120px) {
+      .main-grid { grid-template-columns:1fr; }
+      .meta-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 720px) {
+      body { padding:24px 12px; }
+      .header { flex-direction:column; align-items:flex-start; }
+      h1 { font-size:30px; }
+      .input-grid, .input-grid.three, .meta-grid, .capacity-strip, .series-picker { grid-template-columns:1fr; }
+      .deduction-group { grid-template-columns:1fr; }
+      .compact-fields .field { width:calc(50% - 6px); flex:0 0 calc(50% - 6px); }
+      .vessel-search-wrap, .cargo-result-row { grid-template-columns:1fr; }
+      .btn-row { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <h1>Draft Loadable Calculator</h1>
+        <p class="subtitle">선박 시리즈별 동형선 정보와 Scenario DWT 기준점을 이용한 Cargo Loadable Weight 계산 시스템</p>
+      </div>
+      <div class="version">Deploy v19 · Tropical / NAIKAI 2500 Added</div>
+    </header>
+
+    <section class="main-grid">
+      <div class="glass-card">
+        <div class="section-title">Vessel & Scenario</div>
+        <div class="input-grid">
+          <div class="field">
+            <label for="vesselInput">Vessel Search</label>
+            <input id="vesselInput" placeholder="선박명 또는 CODE 입력" autocomplete="off" />
+            <datalist id="vesselList"></datalist>
+          </div>
+          <div class="field">
+            <label for="scenarioSelect">Operational Scenario</label>
+            <select id="scenarioSelect"></select>
+          </div>
+        </div>
+
+        <div class="section-title">Series Capacity</div>
+        <div class="capacity-strip compact-capacity">
+          <div class="cap-box"><div class="meta-label">Design TEU</div><div id="designTeu" class="cap-value">-</div></div>
+          <div class="cap-box"><div class="meta-label">14T Homo TEU</div><div id="homo14" class="cap-value">-</div></div>
+          <div class="cap-box"><div class="meta-label">14T WT</div><div id="homo14Weight" class="cap-value">-</div></div>
+        </div>
+
+        <div class="section-title">Scenario Conditions</div>
+        <div class="input-grid three">
+          <div class="field"><label for="portCode">Port / Condition</label><input id="portCode" readonly /></div>
+          <div class="field"><label for="waterDensity">Water Density / SG</label><input id="waterDensity" type="number" step="0.001" /></div>
+          <div class="field"><label for="draftInput">Draft EXT. / m</label><input id="draftInput" type="number" step="0.001" /><div id="draftAutoNote" class="draft-auto-note"></div></div>
+        </div>
+
+        <div class="section-title">Non-Cargo Weight Inputs</div>
+        <div class="deduction-group">
+          <div><div class="group-title">Water & Ballast</div><div class="group-sub">Ballast + Fresh Water</div></div>
+          <div class="compact-fields">
+            <div class="field"><label for="ballast">Ballast</label><input id="ballast" type="number" step="1" /></div>
+            <div class="field"><label for="freshWater">Fresh Water</label><input id="freshWater" type="number" step="1" /></div>
+          </div>
+        </div>
+        <div class="deduction-group">
+          <div><div class="group-title">Bunker & Lube</div><div class="group-sub">FO + MGO + Lub Oil</div></div>
+          <div class="compact-fields">
+            <div class="field"><label for="fo">FO</label><input id="fo" type="number" step="1" /></div>
+            <div class="field"><label for="mgo">MGO</label><input id="mgo" type="number" step="1" /></div>
+            <div class="field"><label for="lubeOil">Lub Oil</label><input id="lubeOil" type="number" step="1" /></div>
+          </div>
+        </div>
+        <div class="deduction-group">
+          <div><div class="group-title">Constant & Other</div><div class="group-sub">Constant + Other Weight</div></div>
+          <div class="compact-fields">
+            <div class="field"><label for="constant">Constant</label><input id="constant" type="number" step="1" /></div>
+            <div class="field"><label for="otherWeight">Other</label><input id="otherWeight" type="number" step="1" /></div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-calc" onclick="calculate()">Execute Calculation</button>
+          <button class="btn-sub" onclick="resetDefaultWeights()">Default Weights</button>
+          <button class="btn-sub" onclick="resetScenario()">Default Scenario</button>
+        </div>
+
+        <div class="section-title">Series Metadata</div>
+        <div class="meta-grid">
+          <div class="meta-box clickable" onclick="openDesignModelModal()" title="DESIGN CAPA 종류별 선택"><div class="meta-label">Design Capa</div><div id="designCapa" class="meta-value">-</div><div class="meta-hint">Click to select model</div></div>
+          <div class="meta-box"><div class="meta-label">Builder Model</div><div id="builderModel" class="meta-value">-</div></div>
+          <div class="meta-box"><div class="meta-label">Vessel Code</div><div id="vesselCodeView" class="meta-value">-</div></div>
+          <div class="meta-box"><div class="meta-label">Series Count</div><div id="seriesCount" class="meta-value">-</div></div>
+        </div>
+        <div id="sisterList" class="sister-box">선박을 선택하면 동형선 정보가 표시됩니다.</div>
+
+        <div id="inputWarning" class="warning"></div>
+        <div id="inputDanger" class="danger"></div>
+      </div>
+
+      <div class="glass-card" style="background:var(--panel-strong);">
+        <div class="section-title">Calculation Result</div>
+        <div class="result-stack">
+          <div class="res-card main">
+            <div class="cargo-result-row">
+              <div>
+                <div class="res-label">Cargo Loadable Weight</div>
+                <div class="res-value" style="color:var(--success);"><span id="resultCargo">-</span><span class="res-unit">MT</span></div>
+              </div>
+              <div class="wt14-box">
+                <div class="res-label">WT / 14T</div>
+                <div class="wt14-value"><span id="resultWt14">-</span><span class="res-unit">TEU</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="res-card dwt small">
+            <div class="res-label">Scenario DWT</div>
+            <div class="res-value"><span id="resultDwt">-</span><span class="res-unit">MT</span></div>
+          </div>
+          <div class="res-card ded small">
+            <div class="res-label">Total Non-Cargo Weight <span style="color:#fcd34d;">/ Deduction</span></div>
+            <div class="res-value" style="color:var(--warning);"><span id="resultDeduction">-</span><span class="res-unit">MT</span></div>
+          </div>
+        </div>
+
+
+        <div class="section-title">Non-Cargo Weight Summary</div>
+        <table class="data-table">
+          <thead><tr><th>Item</th><th>Weight (MT)</th></tr></thead>
+          <tbody>
+            <tr><td>Ballast</td><td><span id="sumBallast">-</span></td></tr>
+            <tr><td>Fresh Water</td><td><span id="sumFreshWater">-</span></td></tr>
+            <tr><td>Bunker (FO + MGO)</td><td><span id="sumBunker">-</span></td></tr>
+            <tr><td>Lub Oil</td><td><span id="sumLubeOil">-</span></td></tr>
+            <tr><td>Constant</td><td><span id="sumConstant">-</span></td></tr>
+            <tr><td>Other Weight</td><td><span id="sumOtherWeight">-</span></td></tr>
+          </tbody>
+        </table>
+
+        <div id="interpolationNote" class="note">선박과 시나리오를 선택하면 계산 기준이 표시됩니다.</div>
+        <div class="footer">용어는 화면에서 <b>Total Non-Cargo Weight / Deduction</b>으로 병기했습니다. 실무 계산상 DWT에서 차감되는 항목이라는 의미는 Deduction이 맞지만, Ballast·FW·Bunker·Constant의 성격을 설명하기에는 Non-Cargo Weight가 더 명확합니다.</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="designCapaModal" class="modal-backdrop" onclick="closeDesignCapaModal(event)">
+    <div class="modal-card series-picker-modal" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title">Select Design Capa</h2>
+          <p class="modal-subtitle">DESIGN CAPA를 먼저 선택하면 같은 창 안에서 Builder Model과 Vessel을 단계적으로 선택할 수 있습니다. 여러 팝업을 띄우는 방식보다 한 화면에서 필터링하는 방식이 조작성이 좋습니다.</p>
+        </div>
+        <button class="modal-close" onclick="closeDesignCapaModal()" aria-label="Close">×</button>
+      </div>
+
+      <div class="series-picker">
+        <div class="picker-panel">
+          <div class="picker-title">1. Design Capa</div>
+          <div id="designCapaOptions" class="picker-list"></div>
+        </div>
+        <div class="picker-panel">
+          <div class="picker-title">2. Builder Model</div>
+          <div id="builderModelOptions" class="picker-list muted-list">Design Capa를 선택하세요.</div>
+        </div>
+        <div class="picker-panel wide">
+          <div class="picker-title">3. Vessel</div>
+          <div id="vesselOptions" class="picker-list vessel-picker-list muted-list">Builder Model을 선택하거나 직접 선박을 선택하세요.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    let lastDraftCapReason = "";
+    const vessels = [
+    {
+        "designCapa": "8000",
+        "builderModel": "HHI 8000",
+        "vesselName": "MELBOURNE BRIDGE",
+        "vesselCode": "MEBG",
+        "designTeu": 8002,
+        "homo14": 5030
+    },
+    {
+        "designCapa": "8000",
+        "builderModel": "HHI 8000",
+        "vesselName": "MUMBAI BRIDGE",
+        "vesselCode": "MBBG",
+        "designTeu": 8002,
+        "homo14": 5030
+    },
+    {
+        "designCapa": "8000",
+        "builderModel": "HHI 8000",
+        "vesselName": "SYDNEY BRIDGE",
+        "vesselCode": "SDBG",
+        "designTeu": 8002,
+        "homo14": 5030
+    },
+    {
+        "designCapa": "2800",
+        "builderModel": "MIPO 2800",
+        "vesselName": "LAEM CHABANG VOYAGER",
+        "vesselCode": "LCVY",
+        "designTeu": 2782,
+        "homo14": 2150
+    },
+    {
+        "designCapa": "2800",
+        "builderModel": "MIPO 2800",
+        "vesselName": "NINGBO VOYAGER",
+        "vesselCode": "NBVY",
+        "designTeu": 2782,
+        "homo14": 2150
+    },
+    {
+        "designCapa": "2800",
+        "builderModel": "MIPO 2800",
+        "vesselName": "QINGDAO VOYAGER",
+        "vesselCode": "QDVY",
+        "designTeu": 2782,
+        "homo14": 2150
+    },
+    {
+        "designCapa": "2800",
+        "builderModel": "MIPO 2800",
+        "vesselName": "TIANJIN VOYAGER",
+        "vesselCode": "TJVY",
+        "designTeu": 2782,
+        "homo14": 2150
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "MIPO 2500",
+        "vesselName": "INCHEON VOYAGER",
+        "vesselCode": "ICVY",
+        "designTeu": 2548,
+        "homo14": 2025
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "MIPO 2500",
+        "vesselName": "KWANG YANG VOYAGER",
+        "vesselCode": "KYVY",
+        "designTeu": 2548,
+        "homo14": 2025
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "MIPO 2500",
+        "vesselName": "ULSAN VOYAGER",
+        "vesselCode": "USVY",
+        "designTeu": 2548,
+        "homo14": 2025
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "MIPO 2500",
+        "vesselName": "YEOSU VOYAGER",
+        "vesselCode": "YSVY",
+        "designTeu": 2548,
+        "homo14": 2025
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "NAIKAI 2500",
+        "vesselName": "HOCHIMINH VOYAGER",
+        "vesselCode": "HMVY",
+        "designTeu": 2535,
+        "homo14": 1854
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "NAIKAI 2500",
+        "vesselName": "JAKARATA VOYAGER",
+        "vesselCode": "JKVY",
+        "designTeu": 2535,
+        "homo14": 1854
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "NAIKAI 2500",
+        "vesselName": "SHANGHAI VOYAGER",
+        "vesselCode": "SHVY",
+        "designTeu": 2535,
+        "homo14": 1854
+    },
+    {
+        "designCapa": "2500",
+        "builderModel": "2500 CNVY",
+        "vesselName": "CHENNAI VOYAGER",
+        "vesselCode": "CNVY",
+        "designTeu": 2546,
+        "homo14": 1862
+    },
+    {
+        "designCapa": "2000",
+        "builderModel": "2500 SBVY",
+        "vesselName": "SURABAYA VOYAGER",
+        "vesselCode": "SBVG",
+        "designTeu": 1980,
+        "homo14": 1606
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "DAESUN",
+        "vesselName": "HEUNG-A BANGKOK",
+        "vesselCode": "HAB",
+        "designTeu": 1785,
+        "homo14": 1210
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "DAESUN",
+        "vesselName": "HEUNG-A HOCHIMINH",
+        "vesselCode": "HAHM",
+        "designTeu": 1785,
+        "homo14": 1210
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE ALTAIR",
+        "vesselCode": "SWAL",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE ATLANTIC",
+        "vesselCode": "SWAT",
+        "designTeu": 1809,
+        "homo14": 1214
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE BALTIC",
+        "vesselCode": "SWBT",
+        "designTeu": 1809,
+        "homo14": 1214
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE CAPELLA",
+        "vesselCode": "SWCP",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE CHITTAGONG",
+        "vesselCode": "SWCG",
+        "designTeu": 1809,
+        "homo14": 1235
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE DENEB",
+        "vesselCode": "SWDN",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE INCHEON",
+        "vesselCode": "SWIC",
+        "designTeu": 1809,
+        "homo14": 1235
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE MIMOSA",
+        "vesselCode": "SWMM",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE PACIFIC",
+        "vesselCode": "SWPC",
+        "designTeu": 1809,
+        "homo14": 1214
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE RIGEL",
+        "vesselCode": "SWRG",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE SHANGHAI",
+        "vesselCode": "SWSH",
+        "designTeu": 1800,
+        "homo14": 1235
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE SIRIUS",
+        "vesselCode": "SWSI",
+        "designTeu": 1809,
+        "homo14": 1235
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE SPICA",
+        "vesselCode": "SWSP",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE SUNRISE",
+        "vesselCode": "SWSR",
+        "designTeu": 1809,
+        "homo14": 1214
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE VEGA",
+        "vesselCode": "SWVG",
+        "designTeu": 1809,
+        "homo14": 1247
+    },
+    {
+        "designCapa": "1800",
+        "builderModel": "MIPO 1800",
+        "vesselName": "SAWASDEE XIAMEN",
+        "vesselCode": "SWXM",
+        "designTeu": 1809,
+        "homo14": 1235
+    },
+    {
+        "designCapa": "1600",
+        "builderModel": "1600 SWTD",
+        "vesselName": "SAWASDEE THAILAND",
+        "vesselCode": "SWTD",
+        "designTeu": 1577,
+        "homo14": 1185
+    },
+    {
+        "designCapa": "1100",
+        "builderModel": "1100 PCSZ",
+        "vesselName": "PACIFIC SHENZHEN",
+        "vesselCode": "PCSZ",
+        "designTeu": 1102,
+        "homo14": 706
+    },
+    {
+        "designCapa": "1100",
+        "builderModel": "1100 NBTD",
+        "vesselName": "NINGBO TRADER",
+        "vesselCode": "NBTD",
+        "designTeu": 1114,
+        "homo14": 700
+    },
+    {
+        "designCapa": "1100",
+        "builderModel": "1100 PCBJ",
+        "vesselName": "PACIFIC BEIJING",
+        "vesselCode": "PCBJ",
+        "designTeu": 1118,
+        "homo14": 700
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "DAESUN 1000",
+        "vesselName": "HEUNG-A AKITA",
+        "vesselCode": "HAKT",
+        "designTeu": 1003,
+        "homo14": 690
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "DAESUN 1000",
+        "vesselName": "HEUNG-A HAIPHONG",
+        "vesselCode": "HAHP",
+        "designTeu": 1003,
+        "homo14": 690
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "DAESUN 1000",
+        "vesselName": "HEUNG-A JANICE",
+        "vesselCode": "HAJN",
+        "designTeu": 1003,
+        "homo14": 690
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "DAESUN 1000",
+        "vesselName": "HEUNG-A XIAMEN",
+        "vesselCode": "HAXM",
+        "designTeu": 1003,
+        "homo14": 690
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "KYOKUYO 1000",
+        "vesselName": "HEUNG-A SARAH",
+        "vesselCode": "HASR",
+        "designTeu": 1103,
+        "homo14": 650
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "KYOKUYO 1000",
+        "vesselName": "HEUNG-A YOUNG",
+        "vesselCode": "HAYN",
+        "designTeu": 1103,
+        "homo14": 650
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "MIPO 1000",
+        "vesselName": "AKITA TRADER",
+        "vesselCode": "AKTR",
+        "designTeu": 1054,
+        "homo14": 665
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "MIPO 1000",
+        "vesselName": "TOYAMA TRADER",
+        "vesselCode": "TYTR",
+        "designTeu": 1054,
+        "homo14": 665
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "WENCHONG 1000",
+        "vesselName": "KOBE TRADER",
+        "vesselCode": "KBTR",
+        "designTeu": 1084,
+        "homo14": 710
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "WENCHONG 1000",
+        "vesselName": "QINGDAO TRADER",
+        "vesselCode": "QDTR",
+        "designTeu": 1084,
+        "homo14": 710
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "WENCHONG 1000",
+        "vesselName": "YANGTZE TRADER",
+        "vesselCode": "YTTR",
+        "designTeu": 1084,
+        "homo14": 695
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "WENCHONG 1000",
+        "vesselName": "YOKOHAMA TRADER",
+        "vesselCode": "YKTD",
+        "designTeu": 1084,
+        "homo14": 710
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "1000 HTVY",
+        "vesselName": "HAKATA VOYAGER",
+        "vesselCode": "HTVY",
+        "designTeu": 698,
+        "homo14": 436
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "1000 HKVY",
+        "vesselName": "HONGKONG VOYAGER",
+        "vesselCode": "HKVY",
+        "designTeu": 1060,
+        "homo14": 770
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "1000 NGTR",
+        "vesselName": "NAGOYA TRADER",
+        "vesselCode": "NGTR",
+        "designTeu": 907,
+        "homo14": 622
+    },
+    {
+        "designCapa": "1000",
+        "builderModel": "1000 SDTR",
+        "vesselName": "SENDAI TRADER",
+        "vesselCode": "SDTR",
+        "designTeu": 1118,
+        "homo14": 700
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "Fujian",
+        "vesselName": "PACIFIC SINGAPORE",
+        "vesselCode": "PCSG",
+        "designTeu": 698,
+        "homo14": 436
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "Fujian",
+        "vesselName": "PACIFIC TIANJIN",
+        "vesselCode": "PCTJ",
+        "designTeu": 698,
+        "homo14": 436
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "Fujian",
+        "vesselName": "VOSTOCHNY VOYAGER",
+        "vesselCode": "VTVY",
+        "designTeu": 698,
+        "homo14": 436
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 ATSH",
+        "vesselName": "ATLANTIC SOUTH",
+        "vesselCode": "ATSH",
+        "designTeu": 704,
+        "homo14": 413
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 ATPR",
+        "vesselName": "ATLANTIC PIONEER",
+        "vesselCode": "ATPR",
+        "designTeu": 724,
+        "homo14": 440
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 HRON",
+        "vesselName": "HONOR OCEAN",
+        "vesselCode": "HRON",
+        "designTeu": 634,
+        "homo14": 454
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 OSVY",
+        "vesselName": "OSAKA VOYAGER",
+        "vesselCode": "OSVY",
+        "designTeu": 698,
+        "homo14": 436
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 PCBS",
+        "vesselName": "PACIFIC BUSAN",
+        "vesselCode": "PCBS",
+        "designTeu": 704,
+        "homo14": 413
+    },
+    {
+        "designCapa": "700",
+        "builderModel": "700 PCNB",
+        "vesselName": "PACIFIC NINGBO",
+        "vesselCode": "PCNB",
+        "designTeu": 698,
+        "homo14": 442
+    },
+    {
+        "designCapa": "550",
+        "builderModel": "550 SKNT",
+        "vesselName": "SINOKOR NIIGATA",
+        "vesselCode": "SKNT",
+        "designTeu": 550,
+        "homo14": 350
+    },
+    {
+        "designCapa": "428",
+        "builderModel": "JIANGSU",
+        "vesselName": "HAKATA EXPRESS",
+        "vesselCode": "HKEP",
+        "designTeu": 428,
+        "homo14": 220
+    },
+    {
+        "designCapa": "428",
+        "builderModel": "JIANGSU",
+        "vesselName": "MOJI EXPRESS",
+        "vesselCode": "MJEP",
+        "designTeu": 428,
+        "homo14": 220
+    }
+];
+
+    const scenarios = [
+      {
+        scenarioId: "CNSHA",
+        scenarioName: "CNSHA (SHANGHAI)",
+        portCode: "CNSHA",
+        waterDensity: 1.000,
+        defaultDraft: 11.500,
+        supportedSeries: [
+          { designCapa: "8000", builderModel: "HHI 8000" },
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" },
+          { designCapa: "1800", builderModel: "DAESUN" }
+        ],
+        draftPointsBySeries: {
+          "8000|HHI 8000": [
+            { draft: 11.400, dwt: 55962 },
+            { draft: 11.500, dwt: 56854 },
+            { draft: 11.600, dwt: 57749 }
+          ],
+          "2800|MIPO 2800": [
+            { draft: 11.231, dwt: 38614 },
+            { draft: 11.400, dwt: 39556 },
+            { draft: 11.500, dwt: 40114 },
+            { draft: 11.600, dwt: 40672 }
+          ],
+          "2500|MIPO 2500": [
+            { draft: 11.400, dwt: 34102 },
+            { draft: 11.500, dwt: 34615 },
+            { draft: 11.600, dwt: 35128 }
+          ],
+          "2500|NAIKAI 2500": [
+            { draft: 11.400, dwt: 32960 },
+            { draft: 11.480, dwt: 33379 },
+            { draft: 11.714, dwt: 34603 }
+          ],
+          "1800|MIPO 1800": [
+            { draft: 9.850, dwt: 21948 },
+            { draft: 9.952, dwt: 22350 },
+            { draft: 10.155, dwt: 23149 }
+          ],
+          "1800|DAESUN": [
+            { draft: 9.750, dwt: 20000 },
+            { draft: 9.865, dwt: 20500 },
+            { draft: 9.965, dwt: 21000 }
+          ]
+        }
+      },
+      {
+        scenarioId: "VNHPH",
+        scenarioName: "VNHPH (HAIPHONG)",
+        portCode: "VNHPH",
+        waterDensity: 1.000,
+        defaultDraft: 10.800,
+        supportedSeries: [
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" },
+          { designCapa: "1800", builderModel: "DAESUN" }
+        ],
+        draftPointsBySeries: {
+          "2800|MIPO 2800": [
+            { draft: 10.700, dwt: 35695 },
+            { draft: 10.800, dwt: 36245 },
+            { draft: 10.900, dwt: 36795 }
+          ],
+          "2500|MIPO 2500": [
+            { draft: 10.700, dwt: 30673 },
+            { draft: 10.800, dwt: 31173 },
+            { draft: 10.900, dwt: 31673 }
+          ],
+          "2500|NAIKAI 2500": [
+            { draft: 10.700, dwt: 29300 },
+            { draft: 10.800, dwt: 29823 },
+            { draft: 10.900, dwt: 30346 }
+          ],
+          "1800|MIPO 1800": [
+            { draft: 9.850, dwt: 21948 },
+            { draft: 9.952, dwt: 22350 },
+            { draft: 10.155, dwt: 23149 }
+          ],
+          "1800|DAESUN": [
+            { draft: 9.750, dwt: 20000 },
+            { draft: 9.865, dwt: 20500 },
+            { draft: 9.965, dwt: 21000 }
+          ]
+        },
+        dataNote: "VNHPH는 현재 NBVY/YSVY/SWVG Capacity Plan 기준 1차 표준화 값입니다. SWVG/MIPO 1800 및 DAESUN 1800은 VNHPH 기본 Draft가 Fresh Water Draft를 초과하므로 각 Fresh Water Draft로 자동 제한됩니다. 실제 VNHPH 제한 Draft가 확정되면 Scenario Master에서 조정하세요."
+      },
+      {
+        scenarioId: "IDSRG",
+        scenarioName: "IDSRG (SEMARANG)",
+        portCode: "IDSRG",
+        waterDensity: 1.025,
+        defaultDraft: 9.400,
+        supportedSeries: [
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" },
+          { designCapa: "1800", builderModel: "DAESUN" }
+        ],
+        draftPointsBySeries: {
+          "2800|MIPO 2800": [{ draft: 9.400, dwt: 29587 }],
+          "2500|MIPO 2500": [{ draft: 9.400, dwt: 24991 }],
+          "2500|NAIKAI 2500": [{ draft: 9.400, dwt: 23470 }],
+          "1800|MIPO 1800": [{ draft: 9.400, dwt: 20900 }],
+          "1800|DAESUN": [{ draft: 9.400, dwt: 19250 }]
+        },
+        fixedDraft: true,
+        dataNote: "IDSRG(SEMARANG)는 첨부 시나리오 파일의 SG 1.025 / Draft 9.400m 조건을 반영했습니다. 첨부 파일에는 선박 시리즈별 DWT 기준점이 없어, 현재 입력된 Capacity Plan 기준점의 Draft-DWT 기울기를 이용한 1차 추정값입니다. 실제 Semarang Capacity Plan DWT가 확보되면 이 값을 교체하세요."
+      },
+      {
+        scenarioId: "SUMMER_DRAFT",
+        scenarioName: "SUMMER DRAFT",
+        portCode: "SUMMER",
+        waterDensity: 1.025,
+        defaultDraftBySeries: {
+          "8000|HHI 8000": 14.520,
+          "2800|MIPO 2800": 11.017,
+          "2500|MIPO 2500": 11.718,
+          "2500|NAIKAI 2500": 11.272,
+          "1800|MIPO 1800": 9.767,
+          "1800|DAESUN": 9.750
+        },
+        supportedSeries: [
+          { designCapa: "8000", builderModel: "HHI 8000" },
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" },
+          { designCapa: "1800", builderModel: "DAESUN" }
+        ],
+        draftPointsBySeries: {
+          "8000|HHI 8000": [{ draft: 14.520, dwt: 87814 }],
+          "2800|MIPO 2800": [{ draft: 11.017, dwt: 38609 }],
+          "2500|MIPO 2500": [{ draft: 11.718, dwt: 36882 }],
+          "2500|NAIKAI 2500": [{ draft: 11.272, dwt: 33380 }],
+          "1800|MIPO 1800": [{ draft: 9.767, dwt: 22344 }],
+          "1800|DAESUN": [{ draft: 9.750, dwt: 21000 }]
+        },
+        fixedDraft: true
+      },
+      {
+        scenarioId: "TROPICAL_DRAFT",
+        scenarioName: "TROPICAL DRAFT",
+        portCode: "TROPICAL",
+        waterDensity: 1.025,
+        defaultDraftBySeries: {
+          "8000|HHI 8000": 14.822,
+          "2800|MIPO 2800": 11.246,
+          "2500|MIPO 2500": 11.962,
+          "2500|NAIKAI 2500": 11.506,
+          "1800|MIPO 1800": 9.970
+        },
+        supportedSeries: [
+          { designCapa: "8000", builderModel: "HHI 8000" },
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" }
+        ],
+        draftPointsBySeries: {
+          "8000|HHI 8000": [{ draft: 14.822, dwt: 90839 }],
+          "2800|MIPO 2800": [{ draft: 11.246, dwt: 39916 }],
+          "2500|MIPO 2500": [{ draft: 11.962, dwt: 38160 }],
+          "2500|NAIKAI 2500": [{ draft: 11.506, dwt: 34627 }],
+          "1800|MIPO 1800": [{ draft: 9.970, dwt: 23158 }]
+        },
+        fixedDraft: true,
+        dataNote: "TROPICAL DRAFT는 Freeboard Particulars Table의 Tropical 행에서 취합한 Draft/DWT를 사용합니다. DAESUN 1800은 별도 표준화 자료 수취 후 추가 예정입니다."
+      },
+      {
+        scenarioId: "FRESH_WATER",
+        scenarioName: "FRESH WATER",
+        portCode: "FRESH",
+        waterDensity: 1.000,
+        defaultDraftBySeries: {
+          "8000|HHI 8000": 14.799,
+          "2800|MIPO 2800": 11.231,
+          "2500|MIPO 2500": 11.943,
+          "2500|NAIKAI 2500": 11.480,
+          "1800|MIPO 1800": 9.952,
+          "1800|DAESUN": 9.965
+        },
+        supportedSeries: [
+          { designCapa: "8000", builderModel: "HHI 8000" },
+          { designCapa: "2800", builderModel: "MIPO 2800" },
+          { designCapa: "2500", builderModel: "MIPO 2500" },
+          { designCapa: "2500", builderModel: "NAIKAI 2500" },
+          { designCapa: "1800", builderModel: "MIPO 1800" },
+          { designCapa: "1800", builderModel: "DAESUN" }
+        ],
+        draftPointsBySeries: {
+          "8000|HHI 8000": [{ draft: 14.799, dwt: 87818 }],
+          "2800|MIPO 2800": [{ draft: 11.231, dwt: 38614 }],
+          "2500|MIPO 2500": [{ draft: 11.943, dwt: 36888 }],
+          "2500|NAIKAI 2500": [{ draft: 11.480, dwt: 33379 }],
+          "1800|MIPO 1800": [{ draft: 9.952, dwt: 22350 }],
+          "1800|DAESUN": [{ draft: 9.965, dwt: 21000 }]
+        },
+        fixedDraft: true
+      }
+    ];
+
+    const defaultWeights = {
+      ballast: 8000,
+      freshWater: 300,
+      fo: 1500,
+      mgo: 200,
+      lubeOil: 10,
+      constant: 3000,
+      otherWeight: 0
+    };
+
+    const defaultWeightsBySeries = {
+      "2800|MIPO 2800": {
+        ballast: 4000,
+        freshWater: 300,
+        fo: 1000,
+        mgo: 100,
+        lubeOil: 10,
+        constant: 400,
+        otherWeight: 100
+      },
+      "2500|MIPO 2500": {
+        ballast: 4000,
+        freshWater: 300,
+        fo: 1000,
+        mgo: 100,
+        lubeOil: 10,
+        constant: 400,
+        otherWeight: 100
+      },
+      "2500|NAIKAI 2500": {
+        ballast: 4000,
+        freshWater: 300,
+        fo: 1000,
+        mgo: 100,
+        lubeOil: 10,
+        constant: 400,
+        otherWeight: 100
+      },
+      "1800|MIPO 1800": {
+        ballast: 3000,
+        freshWater: 200,
+        fo: 700,
+        mgo: 80,
+        lubeOil: 10,
+        constant: 300,
+        otherWeight: 100
+      },
+      "1800|DAESUN": {
+        ballast: 3000,
+        freshWater: 200,
+        fo: 700,
+        mgo: 80,
+        lubeOil: 10,
+        constant: 300,
+        otherWeight: 100
+      }
+    };
+
+    const draftCapsBySeriesScenario = {
+      "2800|MIPO 2800|CNSHA": {
+        maxDraft: 11.231,
+        reason: "MIPO 2800 CNSHA Draft가 Fresh Water Draft 11.231m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      },
+      "2500|NAIKAI 2500|CNSHA": {
+        maxDraft: 11.480,
+        reason: "NAIKAI 2500 CNSHA Draft가 Fresh Water Draft 11.480m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      },
+      "1800|MIPO 1800|CNSHA": {
+        maxDraft: 9.952,
+        reason: "MIPO 1800 CNSHA Draft가 Fresh Water Draft 9.952m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      },
+      "1800|MIPO 1800|VNHPH": {
+        maxDraft: 9.952,
+        reason: "MIPO 1800 VNHPH Draft가 Fresh Water Draft 9.952m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      },
+      "1800|DAESUN|CNSHA": {
+        maxDraft: 9.965,
+        reason: "DAESUN 1800 CNSHA Draft가 Fresh Water Draft 9.965m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      },
+      "1800|DAESUN|VNHPH": {
+        maxDraft: 9.965,
+        reason: "DAESUN 1800 VNHPH Draft가 Fresh Water Draft 9.965m를 초과하여 Fresh Water 기준 Draft로 자동 설정되었습니다."
+      }
+    };
+
+    const els = {};
+
+    function $(id) { return document.getElementById(id); }
+    function fmt(v, d = 0) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return "-";
+      return Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function toNumber(id) {
+      const n = Number($(id).value);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function norm(s) { return String(s || "").trim().toUpperCase(); }
+    function displayBuilder(v) { return v && v.builderModel ? v.builderModel : "N/A"; }
+    function seriesKeyOf(obj) { return `${norm(obj.designCapa)}|${norm(obj.builderModel)}`; }
+
+    function hasAnyDwtData(vessel) {
+      if (!vessel) return false;
+      const key = seriesKeyOf(vessel);
+      return scenarios.some(scenario => {
+        if (!isScenarioSupported(vessel, scenario)) return false;
+        const points = scenario.draftPointsBySeries ? scenario.draftPointsBySeries[key] : scenario.draftPoints;
+        return Array.isArray(points) && points.length > 0;
+      });
+    }
+
+    function getSelectableVessels() {
+      return vessels.filter(hasAnyDwtData);
+    }
+
+    function findVessel() {
+      const q = norm($('vesselInput').value);
+      if (!q) return null;
+      const list = getSelectableVessels();
+      return list.find(v => norm(`${v.vesselCode} / ${v.vesselName}`) === q)
+        || list.find(v => norm(v.vesselCode) === q)
+        || list.find(v => norm(v.vesselName) === q)
+        || list.find(v => norm(v.vesselName).includes(q) || norm(v.vesselCode).includes(q));
+    }
+
+    function getScenario() { return scenarios.find(s => s.scenarioId === $('scenarioSelect').value); }
+
+    function isScenarioSupported(vessel, scenario) {
+      if (!vessel || !scenario) return false;
+      return scenario.supportedSeries.some(s => norm(s.designCapa) === norm(vessel.designCapa) && norm(s.builderModel) === norm(vessel.builderModel));
+    }
+
+    function getSeriesDraftPoints(vessel, scenario) {
+      if (!vessel || !scenario) return [];
+      const key = seriesKeyOf(vessel);
+      if (scenario.draftPointsBySeries && scenario.draftPointsBySeries[key]) return scenario.draftPointsBySeries[key];
+      return scenario.draftPoints || [];
+    }
+
+    function getScenarioDefaultDraft(vessel, scenario) {
+      if (!scenario) return 0;
+      if (vessel && scenario.defaultDraftBySeries) {
+        const key = seriesKeyOf(vessel);
+        if (scenario.defaultDraftBySeries[key] !== undefined) return scenario.defaultDraftBySeries[key];
+      }
+      return scenario.defaultDraft;
+    }
+
+    function getDefaultWeightsForVessel(vessel) {
+      if (!vessel) return defaultWeights;
+      return defaultWeightsBySeries[seriesKeyOf(vessel)] || defaultWeights;
+    }
+
+    function getDraftCap(vessel, scenario) {
+      if (!vessel || !scenario) return null;
+      return draftCapsBySeriesScenario[`${seriesKeyOf(vessel)}|${scenario.scenarioId}`] || null;
+    }
+
+    function applyDraftCapIfNeeded(vessel, scenario, showNote = true) {
+      const note = $('draftAutoNote');
+      if (note) { note.style.display = 'none'; note.textContent = ''; }
+      lastDraftCapReason = '';
+      const cap = getDraftCap(vessel, scenario);
+      if (!cap) return false;
+
+      const currentDraft = toNumber('draftInput');
+      if (currentDraft > cap.maxDraft) {
+        $('draftInput').value = Number(cap.maxDraft).toFixed(3);
+        lastDraftCapReason = cap.reason;
+        return true;
+      }
+      return false;
+    }
+
+    function getSisterVessels(vessel) {
+      if (!vessel) return [];
+      const key = seriesKeyOf(vessel);
+      return getSelectableVessels().filter(v => seriesKeyOf(v) === key);
+    }
+
+    function interpolateDwt(draft, points) {
+      const sorted = [...points].sort((a, b) => a.draft - b.draft);
+      if (!sorted.length) return { ok:false, reason:"NO_DATA", message:"해당 Scenario의 Draft-DWT 기준점이 아직 등록되지 않았습니다." };
+      if (sorted.length === 1) {
+        return {
+          ok:true,
+          dwt: sorted[0].dwt,
+          exact: Math.abs(draft - sorted[0].draft) < 0.000001,
+          lower: sorted[0],
+          upper: sorted[0],
+          message: `${sorted[0].draft.toFixed(3)}m 고정 기준점 DWT ${fmt(sorted[0].dwt)} MT를 적용했습니다.`
+        };
+      }
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+      if (draft < min.draft || draft > max.draft) {
+        return { ok:false, reason:"OUT_OF_RANGE", message:`입력 Draft ${draft.toFixed(3)}m가 현재 관리 범위 ${min.draft.toFixed(3)}m ~ ${max.draft.toFixed(3)}m를 벗어났습니다.` };
+      }
+      for (const p of sorted) {
+        if (Math.abs(draft - p.draft) < 0.000001) return { ok:true, dwt:p.dwt, exact:true, lower:p, upper:p, message:`${p.draft.toFixed(3)}m 기준점 DWT를 직접 적용했습니다.` };
+      }
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const p1 = sorted[i], p2 = sorted[i + 1];
+        if (draft > p1.draft && draft < p2.draft) {
+          const ratio = (draft - p1.draft) / (p2.draft - p1.draft);
+          const dwt = p1.dwt + ratio * (p2.dwt - p1.dwt);
+          return { ok:true, dwt, exact:false, lower:p1, upper:p2, ratio, message:`${p1.draft.toFixed(3)}m (${fmt(p1.dwt)} MT)와 ${p2.draft.toFixed(3)}m (${fmt(p2.dwt)} MT) 사이를 선형보간했습니다.` };
+        }
+      }
+      return { ok:false, reason:"UNKNOWN", message:"DWT 보간에 실패했습니다." };
+    }
+
+    function clearResult(message = "-") {
+      $('resultCargo').textContent = '-';
+      $('resultDwt').textContent = '-';
+      $('resultDeduction').textContent = '-';
+      $('resultWt14').textContent = '-';
+      $('sumBallast').textContent = '-';
+      $('sumFreshWater').textContent = '-';
+      $('sumBunker').textContent = '-';
+      $('sumLubeOil').textContent = '-';
+      $('sumConstant').textContent = '-';
+      $('sumOtherWeight').textContent = '-';
+      $('interpolationNote').innerHTML = message;
+    }
+
+    function showMessage(type, message) {
+      const box = type === 'danger' ? $('inputDanger') : $('inputWarning');
+      box.textContent = message;
+      box.style.display = 'block';
+    }
+    function resetMessages() {
+      $('inputWarning').style.display = 'none';
+      $('inputDanger').style.display = 'none';
+      $('inputWarning').textContent = '';
+      $('inputDanger').textContent = '';
+    }
+
+    function updateVesselMeta(vessel) {
+      if (!vessel) {
+        $('designCapa').textContent = '-';
+        $('builderModel').textContent = '-';
+        $('vesselCodeView').textContent = '-';
+        $('seriesCount').textContent = '-';
+        $('designTeu').textContent = '-';
+        $('homo14').textContent = '-';
+        $('homo14Weight').textContent = '-';
+        $('sisterList').textContent = '선박을 선택하면 동형선 정보가 표시됩니다.';
+        return;
+      }
+      const sisters = getSisterVessels(vessel);
+      $('designCapa').textContent = vessel.designCapa || 'N/A';
+      $('builderModel').textContent = displayBuilder(vessel);
+      $('vesselCodeView').textContent = vessel.vesselCode;
+      $('seriesCount').textContent = `${sisters.length} vessels`;
+      $('designTeu').textContent = fmt(vessel.designTeu);
+      $('homo14').textContent = fmt(vessel.homo14);
+      $('homo14Weight').textContent = `${fmt(Number(vessel.homo14 || 0) * 14)} MT`;
+      $('sisterList').innerHTML = `<b>Same Series:</b> ${sisters.map(v => `<span class="pill">${v.vesselCode} · ${v.vesselName}</span>`).join('')}`;
+    }
+
+
+    function markPending(message = '입력값이 변경되었습니다. Execute Calculation 버튼을 눌러 계산하세요.') {
+      const note = $('interpolationNote');
+      if (note) note.innerHTML = message;
+    }
+
+    function updateSelectionView() {
+      const vessel = findVessel();
+      updateVesselMeta(vessel);
+      if (!vessel) return;
+      const scenario = getScenario();
+      if (scenario) {
+        $('portCode').value = scenario.portCode;
+        $('waterDensity').value = Number(scenario.waterDensity).toFixed(3);
+      }
+    }
+
+    function handleVesselChanged() {
+      resetMessages();
+      updateSelectionView();
+      resetDefaultWeights(false);
+      resetScenario(false);
+      markPending('선박이 변경되었습니다. 기본 Non-Cargo Weight와 Scenario Draft를 확인한 뒤 Execute Calculation을 눌러주세요.');
+    }
+
+    let selectedDesignCapaForPicker = null;
+    let selectedBuilderModelForPicker = null;
+
+    function getDesignCapaStats() {
+      const map = new Map();
+      getSelectableVessels().forEach(v => {
+        const key = v.designCapa || 'N/A';
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(v);
+      });
+      return [...map.entries()].sort((a,b) => {
+        const na = Number(a[0]), nb = Number(b[0]);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return nb - na;
+        return String(a[0]).localeCompare(String(b[0]));
+      });
+    }
+
+    function getBuilderStatsByDesignCapa(designCapa) {
+      const map = new Map();
+      getSelectableVessels()
+        .filter(v => (v.designCapa || 'N/A') === designCapa)
+        .forEach(v => {
+          const key = displayBuilder(v);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push(v);
+        });
+      return [...map.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    }
+
+    function renderDesignModelOptions() {
+      const box = $('designCapaOptions');
+      if (!box) return;
+      box.innerHTML = '';
+      getDesignCapaStats().forEach(([designCapa, list]) => {
+        const btn = document.createElement('button');
+        btn.className = 'picker-btn';
+        if (selectedDesignCapaForPicker === designCapa) btn.classList.add('active');
+        btn.type = 'button';
+        const builderCount = new Set(list.map(v => displayBuilder(v))).size;
+        btn.innerHTML = `<span class="picker-main">${designCapa}</span><span class="picker-sub">${list.length} vessels · ${builderCount} builder model${builderCount > 1 ? 's' : ''}</span>`;
+        btn.onclick = () => selectDesignCapaForPicker(designCapa);
+        box.appendChild(btn);
+      });
+    }
+
+    function renderBuilderModelOptions(designCapa) {
+      const box = $('builderModelOptions');
+      const vesselBox = $('vesselOptions');
+      if (!box) return;
+      box.classList.remove('muted-list');
+      box.innerHTML = '';
+
+      if (!designCapa) {
+        box.classList.add('muted-list');
+        box.textContent = 'Design Capa를 선택하세요.';
+        if (vesselBox) {
+          vesselBox.classList.add('muted-list');
+          vesselBox.textContent = 'Builder Model을 선택하거나 직접 선박을 선택하세요.';
+        }
+        return;
+      }
+
+      const builderStats = getBuilderStatsByDesignCapa(designCapa);
+      builderStats.forEach(([builderModel, list]) => {
+        const btn = document.createElement('button');
+        btn.className = 'picker-btn';
+        if (selectedBuilderModelForPicker === builderModel) btn.classList.add('active');
+        btn.type = 'button';
+        btn.innerHTML = `<span class="picker-main">${builderModel}</span><span class="picker-sub">${list.length} vessel${list.length > 1 ? 's' : ''}</span>`;
+        btn.onclick = () => selectBuilderModelForPicker(builderModel);
+        box.appendChild(btn);
+      });
+
+      if (builderStats.length === 1 && !selectedBuilderModelForPicker) {
+        selectedBuilderModelForPicker = builderStats[0][0];
+        renderVesselOptions(designCapa, selectedBuilderModelForPicker);
+      }
+    }
+
+    function renderVesselOptions(designCapa, builderModel) {
+      const box = $('vesselOptions');
+      if (!box) return;
+      box.classList.remove('muted-list');
+      box.innerHTML = '';
+
+      if (!designCapa) {
+        box.classList.add('muted-list');
+        box.textContent = 'Design Capa를 선택하세요.';
+        return;
+      }
+
+      let list = getSelectableVessels().filter(v => (v.designCapa || 'N/A') === designCapa);
+      if (builderModel) list = list.filter(v => displayBuilder(v) === builderModel);
+
+      if (!list.length) {
+        box.classList.add('muted-list');
+        box.textContent = '선택 가능한 선박이 없습니다.';
+        return;
+      }
+
+      list.forEach(vessel => {
+        const btn = document.createElement('button');
+        btn.className = 'picker-btn';
+        btn.type = 'button';
+        btn.innerHTML = `<span class="picker-main">${vessel.vesselCode} / ${vessel.vesselName}</span><span class="picker-sub">${vessel.designCapa} · ${displayBuilder(vessel)} · Design TEU ${fmt(vessel.designTeu)} · 14T Homo ${fmt(vessel.homo14)}</span>`;
+        btn.onclick = () => selectVesselFromPicker(vessel);
+        box.appendChild(btn);
+      });
+    }
+
+    function selectDesignCapaForPicker(designCapa) {
+      selectedDesignCapaForPicker = designCapa;
+      selectedBuilderModelForPicker = null;
+      renderDesignModelOptions();
+      renderBuilderModelOptions(designCapa);
+      renderVesselOptions(designCapa, null);
+      markPending(`DESIGN CAPA ${designCapa}가 선택되었습니다. Builder Model 또는 Vessel을 선택하세요.`);
+    }
+
+    function selectBuilderModelForPicker(builderModel) {
+      selectedBuilderModelForPicker = builderModel;
+      renderBuilderModelOptions(selectedDesignCapaForPicker);
+      renderVesselOptions(selectedDesignCapaForPicker, builderModel);
+      markPending(`BUILDER MODEL ${builderModel}가 선택되었습니다. Vessel을 선택하세요.`);
+    }
+
+    function selectVesselFromPicker(vessel) {
+      $('vesselInput').value = `${vessel.vesselCode} / ${vessel.vesselName}`;
+      closeDesignCapaModal();
+      handleVesselChanged();
+      markPending(`${vessel.vesselCode} / ${vessel.vesselName}이 선택되었습니다. Execute Calculation 버튼을 눌러 계산하세요.`);
+    }
+
+    function openDesignModelModal() {
+      const vessel = findVessel();
+      selectedDesignCapaForPicker = vessel ? (vessel.designCapa || 'N/A') : null;
+      selectedBuilderModelForPicker = vessel ? displayBuilder(vessel) : null;
+      renderDesignModelOptions();
+      renderBuilderModelOptions(selectedDesignCapaForPicker);
+      renderVesselOptions(selectedDesignCapaForPicker, selectedBuilderModelForPicker);
+      $('designCapaModal').classList.add('show');
+    }
+
+    function closeDesignCapaModal(event) {
+      if (event && event.target !== $('designCapaModal')) return;
+      $('designCapaModal').classList.remove('show');
+    }
+
+    // Backward-compatible alias retained for older inline handlers, if any.
+    function closeDesignModelModal(event) {
+      closeDesignCapaModal(event);
+    }
+
+    function calculate() {
+      resetMessages();
+      const vessel = findVessel();
+      const scenario = getScenario();
+      updateVesselMeta(vessel);
+      if (!vessel) { clearResult('선박을 선택하거나 정확한 선박 CODE/명을 입력하세요.'); return; }
+      if (!scenario) { clearResult('Scenario를 선택하세요.'); return; }
+
+      if (!isScenarioSupported(vessel, scenario)) {
+        clearResult(`선택한 선박 시리즈(${vessel.designCapa} / ${displayBuilder(vessel)})에는 아직 Scenario DWT 데이터가 등록되어 있지 않습니다.`);
+        showMessage('danger', '현재 계산 가능한 DWT 기준점이 입력된 시리즈만 Vessel Search와 Design Capa Picker에 표시됩니다. 신규 선박/모델은 Capacity Plan 기준점 입력 후 표시됩니다.');
+        return;
+      }
+
+      if (scenario.dataPendingMessage) {
+        clearResult(scenario.dataPendingMessage);
+        showMessage('warning', scenario.dataPendingMessage);
+        return;
+      }
+
+      applyDraftCapIfNeeded(vessel, scenario, true);
+
+      const draft = toNumber('draftInput');
+      const sg = toNumber('waterDensity');
+      const seriesDraftPoints = getSeriesDraftPoints(vessel, scenario);
+      const interpolation = interpolateDwt(draft, seriesDraftPoints);
+      if (!interpolation.ok) {
+        clearResult(interpolation.message);
+        showMessage('danger', interpolation.message);
+        return;
+      }
+      if (scenario.fixedDraft && !interpolation.exact) {
+        showMessage('warning', `${scenario.scenarioName}는 고정 Load Line 기준값입니다. Draft를 변경해도 ${interpolation.lower.draft.toFixed(3)}m DWT를 적용합니다.`);
+      }
+
+      const ballast = toNumber('ballast');
+      const freshWater = toNumber('freshWater');
+      const fo = toNumber('fo');
+      const mgo = toNumber('mgo');
+      const lubeOil = toNumber('lubeOil');
+      const constant = toNumber('constant');
+      const otherWeight = toNumber('otherWeight');
+      const waterBallast = ballast + freshWater;
+      const bunker = fo + mgo;
+      const totalNonCargo = ballast + freshWater + bunker + lubeOil + constant + otherWeight;
+      const cargo = interpolation.dwt - totalNonCargo;
+
+      $('resultCargo').textContent = fmt(cargo);
+      $('resultDwt').textContent = fmt(interpolation.dwt);
+      $('resultDeduction').textContent = fmt(totalNonCargo);
+      $('resultWt14').textContent = fmt(cargo / 14, 1);
+      $('sumBallast').textContent = fmt(ballast);
+      $('sumFreshWater').textContent = fmt(freshWater);
+      $('sumBunker').textContent = fmt(bunker);
+      $('sumLubeOil').textContent = fmt(lubeOil);
+      $('sumConstant').textContent = fmt(constant);
+      $('sumOtherWeight').textContent = fmt(otherWeight);
+      $('interpolationNote').innerHTML = `<b>Basis</b><br>
+        Vessel: ${vessel.vesselCode} / ${vessel.vesselName}<br>
+        Series: ${vessel.designCapa || 'N/A'} / ${displayBuilder(vessel)}<br>
+        Scenario: ${scenario.scenarioName} · SG ${sg.toFixed(3)} · Draft ${draft.toFixed(3)}m<br>
+        ${interpolation.message}${scenario.dataNote ? `<br><br><b>Data Note</b><br>${scenario.dataNote}` : ''}${lastDraftCapReason ? `<div class="result-small-note">${lastDraftCapReason}</div>` : ''}`;
+      if (cargo < 0) showMessage('danger', 'Cargo Loadable Weight가 음수입니다. Non-Cargo Weight 입력값 또는 Scenario DWT 기준값을 확인하세요.');
+    }
+
+    function resetDefaultWeights(runCalc = false) {
+      const vessel = findVessel();
+      const weights = getDefaultWeightsForVessel(vessel);
+      Object.entries(weights).forEach(([id, value]) => { $(id).value = value; });
+      if (runCalc) calculate();
+      else markPending('Default Non-Cargo Weight가 적용되었습니다. Execute Calculation 버튼을 눌러 계산하세요.');
+    }
+
+    function resetScenario(runCalc = false) {
+      const s = getScenario();
+      if (!s) return;
+      $('portCode').value = s.portCode;
+      $('waterDensity').value = Number(s.waterDensity).toFixed(3);
+      const v = findVessel();
+      const defaultDraft = getScenarioDefaultDraft(v, s);
+      if (defaultDraft === undefined || defaultDraft === null || !Number.isFinite(Number(defaultDraft))) {
+        $('draftInput').value = '';
+      } else {
+        $('draftInput').value = Number(defaultDraft).toFixed(3);
+      }
+      applyDraftCapIfNeeded(v, s, true);
+      updateSelectionView();
+      if (runCalc) calculate();
+      else markPending('Default Scenario가 적용되었습니다. Execute Calculation 버튼을 눌러 계산하세요.');
+    }
+
+    function init() {
+      const datalist = $('vesselList');
+      getSelectableVessels().forEach(v => {
+        const option = document.createElement('option');
+        option.value = `${v.vesselCode} / ${v.vesselName}`;
+        option.label = `${v.designCapa || 'N/A'} / ${displayBuilder(v)} / TEU ${fmt(v.designTeu)} / 14H ${fmt(v.homo14)}`;
+        datalist.appendChild(option);
+
+      });
+
+      const scenarioSelect = $('scenarioSelect');
+      scenarios.forEach(s => {
+        const option = document.createElement('option');
+        option.value = s.scenarioId;
+        option.textContent = s.scenarioName;
+        scenarioSelect.appendChild(option);
+      });
+      scenarioSelect.value = 'SUMMER_DRAFT';
+
+      $('vesselInput').value = 'MEBG / MELBOURNE BRIDGE';
+      updateSelectionView();
+      resetDefaultWeights(false);
+      resetScenario(false);
+      calculate();
+
+      $('scenarioSelect').addEventListener('change', () => resetScenario(true));
+      $('vesselInput').addEventListener('change', handleVesselChanged);
+
+      ['waterDensity','draftInput','ballast','freshWater','fo','mgo','lubeOil','constant','otherWeight'].forEach(id => {
+        $(id).addEventListener('input', () => {
+          markPending();
+        });
+      });
+
+      const nonCargoInputOrder = ['ballast','freshWater','fo','mgo','lubeOil','constant','otherWeight'];
+      nonCargoInputOrder.forEach((id, index) => {
+        $(id).addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          const nextId = nonCargoInputOrder[index + 1];
+          if (nextId) {
+            $(nextId).focus();
+            $(nextId).select();
+          } else {
+            calculate();
+          }
+        });
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeDesignModelModal();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
