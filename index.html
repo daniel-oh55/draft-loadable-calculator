@@ -621,6 +621,37 @@
     .muted-list { color:var(--muted); line-height:1.6; }
     .result-small-note { margin-top:10px; color:var(--muted); font-size:11.5px; line-height:1.5; }
 
+    .vessel-field { position: relative; }
+    .vessel-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: var(--panel-strong);
+      border: 1px solid var(--primary);
+      border-radius: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 14px 32px rgba(29,39,64,.18);
+      display: none;
+    }
+    .vessel-dropdown.show { display: block; }
+    .vessel-dropdown-item {
+      padding: 10px 13px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--line);
+      transition: background .12s;
+    }
+    .vessel-dropdown-item:first-child { border-radius: 11px 11px 0 0; }
+    .vessel-dropdown-item:last-child { border-bottom: none; border-radius: 0 0 11px 11px; }
+    .vessel-dropdown-item:only-child { border-radius: 11px; }
+    .vessel-dropdown-item:hover, .vessel-dropdown-item.highlighted {
+      background: var(--primary-soft);
+    }
+    .vessel-item-code { font-size: 13px; font-weight: 700; color: var(--primary); }
+    .vessel-item-name { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
     @media (max-width: 1120px) {
       .main-grid { grid-template-columns:1fr; }
       .meta-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
@@ -657,10 +688,10 @@
       <div class="glass-card">
         <div class="section-title">Vessel & Scenario</div>
         <div class="input-grid">
-          <div class="field">
+          <div class="field vessel-field">
             <label for="vesselInput">Vessel Search</label>
             <input id="vesselInput" placeholder="선박명 또는 CODE 입력" autocomplete="off" />
-            <datalist id="vesselList"></datalist>
+            <div id="vesselDropdown" class="vessel-dropdown"></div>
           </div>
           <div class="field">
             <label for="scenarioSelect">Operational Scenario</label>
@@ -801,6 +832,8 @@
   <script>
     const THEME_STORAGE_KEY = "draftLoadableTheme";
     let lastDraftCapReason = "";
+    let vesselDropdownActive = -1;
+    let vesselDropdownList = [];
     const vessels = [
     {
         "designCapa": "8000",
@@ -1986,6 +2019,90 @@
       markPending(`${vessel.vesselCode} / ${vessel.vesselName}이 선택되었습니다. Execute Calculation 버튼을 눌러 계산하세요.`);
     }
 
+    function buildVesselDropdown(query) {
+      const dropdown = $('vesselDropdown');
+      if (!dropdown) return;
+      const q = norm(query);
+      if (!q) { closeVesselDropdown(); return; }
+
+      vesselDropdownList = getSelectableVessels().filter(v =>
+        norm(v.vesselCode).includes(q) || norm(v.vesselName).includes(q)
+      );
+
+      if (!vesselDropdownList.length) { closeVesselDropdown(); return; }
+
+      dropdown.innerHTML = '';
+      vesselDropdownActive = -1;
+
+      vesselDropdownList.forEach(vessel => {
+        const item = document.createElement('div');
+        item.className = 'vessel-dropdown-item';
+        item.innerHTML = `<div class="vessel-item-code">${vessel.vesselCode}</div><div class="vessel-item-name">${vessel.vesselName} · ${vessel.designCapa || 'N/A'} / ${displayBuilder(vessel)}</div>`;
+        item.addEventListener('mousedown', e => {
+          e.preventDefault();
+          selectVesselFromDropdown(vessel);
+        });
+        dropdown.appendChild(item);
+      });
+
+      dropdown.classList.add('show');
+    }
+
+    function closeVesselDropdown() {
+      const dropdown = $('vesselDropdown');
+      if (dropdown) { dropdown.classList.remove('show'); dropdown.innerHTML = ''; }
+      vesselDropdownActive = -1;
+      vesselDropdownList = [];
+    }
+
+    function selectVesselFromDropdown(vessel) {
+      $('vesselInput').value = `${vessel.vesselCode} / ${vessel.vesselName}`;
+      closeVesselDropdown();
+      handleVesselChanged();
+      calculate();
+    }
+
+    function initVesselAutocomplete() {
+      const input = $('vesselInput');
+
+      input.addEventListener('input', () => buildVesselDropdown(input.value));
+
+      input.addEventListener('keydown', e => {
+        const dropdown = $('vesselDropdown');
+        const isOpen = dropdown && dropdown.classList.contains('show');
+
+        if (e.key === 'ArrowDown') {
+          if (!isOpen) return;
+          e.preventDefault();
+          const items = dropdown.querySelectorAll('.vessel-dropdown-item');
+          vesselDropdownActive = Math.min(vesselDropdownActive + 1, items.length - 1);
+          items.forEach((item, i) => item.classList.toggle('highlighted', i === vesselDropdownActive));
+          if (items[vesselDropdownActive]) items[vesselDropdownActive].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+          if (!isOpen) return;
+          e.preventDefault();
+          const items = dropdown.querySelectorAll('.vessel-dropdown-item');
+          vesselDropdownActive = Math.max(vesselDropdownActive - 1, 0);
+          items.forEach((item, i) => item.classList.toggle('highlighted', i === vesselDropdownActive));
+          if (items[vesselDropdownActive]) items[vesselDropdownActive].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (isOpen && vesselDropdownActive >= 0 && vesselDropdownList[vesselDropdownActive]) {
+            selectVesselFromDropdown(vesselDropdownList[vesselDropdownActive]);
+          } else {
+            closeVesselDropdown();
+            handleVesselChanged();
+            calculate();
+          }
+        } else if (e.key === 'Escape') {
+          closeVesselDropdown();
+        }
+      });
+
+      input.addEventListener('blur', () => setTimeout(() => closeVesselDropdown(), 150));
+      input.addEventListener('focus', () => { if (input.value) buildVesselDropdown(input.value); });
+    }
+
     function openDesignModelModal() {
       const vessel = findVessel();
       selectedDesignCapaForPicker = vessel ? (vessel.designCapa || 'N/A') : null;
@@ -2098,15 +2215,6 @@
     }
 
     function init() {
-      const datalist = $('vesselList');
-      getSelectableVessels().forEach(v => {
-        const option = document.createElement('option');
-        option.value = `${v.vesselCode} / ${v.vesselName}`;
-        option.label = `${v.designCapa || 'N/A'} / ${displayBuilder(v)} / TEU ${fmt(v.designTeu)} / 14H ${fmt(v.homo14)}`;
-        datalist.appendChild(option);
-
-      });
-
       const scenarioSelect = $('scenarioSelect');
       scenarios.forEach(s => {
         const option = document.createElement('option');
@@ -2123,7 +2231,7 @@
       calculate();
 
       $('scenarioSelect').addEventListener('change', () => resetScenario(true));
-      $('vesselInput').addEventListener('change', handleVesselChanged);
+      initVesselAutocomplete();
 
       ['waterDensity','draftInput','ballast','freshWater','fo','mgo','lubeOil','constant','otherWeight'].forEach(id => {
         $(id).addEventListener('input', () => {
